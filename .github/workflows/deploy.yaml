@@ -1,0 +1,137 @@
+name: Build and Deploy to Minikube
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ipl-cricket-app
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      run: |
+        docker build -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+        docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} ${{ env.IMAGE_NAME }}:latest
+
+    - name: Save Docker image
+      run: |
+        docker save ${{ env.IMAGE_NAME }}:latest -o ipl-cricket-app.tar
+
+    - name: Upload Docker image artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-image
+        path: ipl-cricket-app.tar
+        retention-days: 1
+
+  deploy-local-minikube:
+    runs-on: self-hosted  # This will run on your local machine with self-hosted runner
+    needs: build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download Docker image artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: docker-image
+
+    - name: Load Docker image to Minikube
+      run: |
+        # Load the image into Minikube's Docker daemon
+        eval $(minikube docker-env)
+        docker load -i ipl-cricket-app.tar
+        docker images | grep ipl-cricket-app
+
+    - name: Deploy to Minikube
+      run: |
+        # Apply Kubernetes manifests
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/configmap.yaml
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+
+    - name: Wait for deployment
+      run: |
+        kubectl rollout status deployment/ipl-cricket-app -n ipl-cricket --timeout=120s
+
+    - name: Get deployment status
+      run: |
+        echo "=== Pods ==="
+        kubectl get pods -n ipl-cricket
+        echo ""
+        echo "=== Services ==="
+        kubectl get services -n ipl-cricket
+        echo ""
+        echo "=== Deployment ==="
+        kubectl get deployment -n ipl-cricket
+
+    - name: Get application URL
+      run: |
+        echo "Application URL: $(minikube service ipl-cricket-service -n ipl-cricket --url)"
+
+    - name: Cleanup artifact
+      if: always()
+      run: |
+        rm -f ipl-cricket-app.tar
+
+  # Alternative job for testing without self-hosted runner
+  test-kubernetes-manifests:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Minikube
+      uses: medyagh/setup-minikube@v0.0.18
+      with:
+        minikube-version: 'latest'
+        kubernetes-version: 'v1.28.0'
+
+    - name: Download Docker image artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: docker-image
+
+    - name: Load image to Minikube
+      run: |
+        eval $(minikube docker-env)
+        docker load -i ipl-cricket-app.tar
+
+    - name: Deploy to Minikube
+      run: |
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/configmap.yaml
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+
+    - name: Wait for deployment
+      run: |
+        kubectl rollout status deployment/ipl-cricket-app -n ipl-cricket --timeout=180s
+
+    - name: Test deployment
+      run: |
+        kubectl get pods -n ipl-cricket
+        kubectl get services -n ipl-cricket
+        
+        # Test health endpoint
+        kubectl port-forward service/ipl-cricket-service 8080:80 -n ipl-cricket &
+        sleep 5
+        curl -f http://localhost:8080/health || echo "Health check endpoint test"

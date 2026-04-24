@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ipl-cricket-app
+  namespace: ipl-cricket
+  labels:
+    app: ipl-cricket
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ipl-cricket
+  template:
+    metadata:
+      labels:
+        app: ipl-cricket
+    spec:
+      containers:
+      - name: ipl-cricket-app
+        image: ipl-cricket-app:latest
+        imagePullPolicy: Never  # Use local image in Minikube
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        env:
+        - name: FLASK_ENV
+          value: "production"
