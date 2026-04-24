@@ -1,74 +1,145 @@
-name: Build and Deploy to Minikubename: Build and Deploy to Minikube
+name: Build and Deploy to Minikubename: Build and Deploy to Minikubename: Build and Deploy to Minikube
 
 
 
-on:on:
+on:
 
-  push:  push:
+  push:
+
+    branches: [ main, master ]on:on:
+
+  pull_request:
+
+    branches: [ main, master ]  push:  push:
+
+  workflow_dispatch:
 
     branches: [ main, master ]    branches: [ main, master ]
 
-  pull_request:  pull_request:
+env:
 
-    branches: [ main, master ]    branches: [ main, master ]
-
-  workflow_dispatch:  workflow_dispatch:
+  IMAGE_NAME: ipl-cricket-app  pull_request:  pull_request:
 
 
 
-env:env:
+jobs:    branches: [ main, master ]    branches: [ main, master ]
 
-  IMAGE_NAME: ipl-cricket-app  IMAGE_NAME: ipl-cricket-app
+  deploy-local-minikube:
 
-  IMAGE_TAG: ${{ github.sha }}
+    runs-on: self-hosted  workflow_dispatch:  workflow_dispatch:
 
-jobs:
+    
 
-  # Job that runs on your LOCAL machine (self-hosted runner)jobs:
+    steps:
 
-  # Builds and deploys directly to your local Minikube  build:
+    - name: Checkout code
 
-  deploy-local-minikube:    runs-on: ubuntu-latest
+      uses: actions/checkout@v4env:env:
 
-    runs-on: self-hosted    
 
-        steps:
 
-    steps:    - name: Checkout code
-
-    - name: Checkout code      uses: actions/checkout@v4
-
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-
-    - name: Setup Minikube Docker Environment      uses: docker/setup-buildx-action@v3
+    - name: Setup Minikube Docker Environment  IMAGE_NAME: ipl-cricket-app  IMAGE_NAME: ipl-cricket-app
 
       run: |
 
-        echo "Setting up Minikube Docker environment..."    - name: Build Docker image
+        echo "Setting up Minikube Docker environment..."  IMAGE_TAG: ${{ github.sha }}
+
+        eval $(minikube docker-env)
+
+        echo "Minikube Docker environment configured"jobs:
+
+
+
+    - name: Build Docker image in Minikube  # Job that runs on your LOCAL machine (self-hosted runner)jobs:
+
+      run: |
+
+        eval $(minikube docker-env)  # Builds and deploys directly to your local Minikube  build:
+
+        echo "Building Docker image..."
+
+        docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .  deploy-local-minikube:    runs-on: ubuntu-latest
+
+        docker tag ${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.IMAGE_NAME }}:latest
+
+        echo "Docker images:"    runs-on: self-hosted    
+
+        docker images | grep ${{ env.IMAGE_NAME }}
+
+        steps:
+
+    - name: Deploy to Minikube
+
+      run: |    steps:    - name: Checkout code
+
+        echo "Applying Kubernetes manifests..."
+
+        kubectl apply -f k8s/namespace.yaml    - name: Checkout code      uses: actions/checkout@v4
+
+        kubectl apply -f k8s/configmap.yaml
+
+        kubectl apply -f k8s/deployment.yaml      uses: actions/checkout@v4
+
+        kubectl apply -f k8s/service.yaml
+
+        echo "Restarting deployment to pick up new image..."    - name: Set up Docker Buildx
+
+        kubectl rollout restart deployment/ipl-cricket-app -n ipl-cricket
+
+    - name: Setup Minikube Docker Environment      uses: docker/setup-buildx-action@v3
+
+    - name: Wait for deployment
+
+      run: |      run: |
+
+        echo "Waiting for deployment to be ready..."
+
+        kubectl rollout status deployment/ipl-cricket-app -n ipl-cricket --timeout=120s        echo "Setting up Minikube Docker environment..."    - name: Build Docker image
+
+
+
+    - name: Get deployment status        eval $(minikube docker-env)      run: |
+
+      run: |
+
+        echo "=== Pods ==="        echo "Minikube Docker environment configured"        docker build -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+
+        kubectl get pods -n ipl-cricket
+
+        echo ""        docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} ${{ env.IMAGE_NAME }}:latest
+
+        echo "=== Services ==="
+
+        kubectl get services -n ipl-cricket    - name: Build Docker image in Minikube
+
+        echo ""
+
+        echo "=== Deployment ==="      run: |    - name: Save Docker image
+
+        kubectl get deployment -n ipl-cricket
 
         eval $(minikube docker-env)      run: |
 
-        echo "Minikube Docker environment configured"        docker build -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+    - name: Show application URL
 
-        docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} ${{ env.IMAGE_NAME }}:latest
+      run: |        echo "Building Docker image..."        docker save ${{ env.IMAGE_NAME }}:latest -o ipl-cricket-app.tar
 
-    - name: Build Docker image in Minikube
+        echo "========================================"
 
-      run: |    - name: Save Docker image
+        echo "Deployment Complete!"        docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
 
-        eval $(minikube docker-env)      run: |
+        echo "========================================"
 
-        echo "Building Docker image..."        docker save ${{ env.IMAGE_NAME }}:latest -o ipl-cricket-app.tar
+        echo ""        docker tag ${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.IMAGE_NAME }}:latest    - name: Upload Docker image artifact
 
-        docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
+        echo "Access the application:"
 
-        docker tag ${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.IMAGE_NAME }}:latest    - name: Upload Docker image artifact
+        echo "  Option 1: minikube service ipl-cricket-service -n ipl-cricket"        echo "Docker images:"      uses: actions/upload-artifact@v4
 
-        echo "Docker images:"      uses: actions/upload-artifact@v4
+        echo "  Option 2: http://$(minikube ip):30080"
 
-        docker images | grep ${{ env.IMAGE_NAME }}      with:
+        echo ""        docker images | grep ${{ env.IMAGE_NAME }}      with:
+
 
         name: docker-image
 
