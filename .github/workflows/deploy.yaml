@@ -65,6 +65,8 @@ jobs:
         kubectl apply -f k8s/configmap.yaml
         kubectl apply -f k8s/deployment.yaml
         kubectl apply -f k8s/service.yaml
+        # Restart deployment to pick up new image
+        kubectl rollout restart deployment/ipl-cricket-app -n ipl-cricket
 
     - name: Wait for deployment
       run: |
