@@ -1,76 +1,149 @@
-name: Build and Deploy to Minikube
+name: Build and Deploy to Minikubename: Build and Deploy to Minikube
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
 
-env:
-  IMAGE_NAME: ipl-cricket-app
+
+on:on:
+
+  push:  push:
+
+    branches: [ main, master ]    branches: [ main, master ]
+
+  pull_request:  pull_request:
+
+    branches: [ main, master ]    branches: [ main, master ]
+
+  workflow_dispatch:  workflow_dispatch:
+
+
+
+env:env:
+
+  IMAGE_NAME: ipl-cricket-app  IMAGE_NAME: ipl-cricket-app
+
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
+
+  # Job that runs on your LOCAL machine (self-hosted runner)jobs:
+
+  # Builds and deploys directly to your local Minikube  build:
+
+  deploy-local-minikube:    runs-on: ubuntu-latest
+
+    runs-on: self-hosted    
+
+        steps:
+
+    steps:    - name: Checkout code
+
+    - name: Checkout code      uses: actions/checkout@v4
+
       uses: actions/checkout@v4
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
 
-    - name: Build Docker image
+    - name: Setup Minikube Docker Environment      uses: docker/setup-buildx-action@v3
+
       run: |
-        docker build -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+
+        echo "Setting up Minikube Docker environment..."    - name: Build Docker image
+
+        eval $(minikube docker-env)      run: |
+
+        echo "Minikube Docker environment configured"        docker build -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+
         docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} ${{ env.IMAGE_NAME }}:latest
 
-    - name: Save Docker image
-      run: |
-        docker save ${{ env.IMAGE_NAME }}:latest -o ipl-cricket-app.tar
+    - name: Build Docker image in Minikube
 
-    - name: Upload Docker image artifact
-      uses: actions/upload-artifact@v4
-      with:
+      run: |    - name: Save Docker image
+
+        eval $(minikube docker-env)      run: |
+
+        echo "Building Docker image..."        docker save ${{ env.IMAGE_NAME }}:latest -o ipl-cricket-app.tar
+
+        docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
+
+        docker tag ${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.IMAGE_NAME }}:latest    - name: Upload Docker image artifact
+
+        echo "Docker images:"      uses: actions/upload-artifact@v4
+
+        docker images | grep ${{ env.IMAGE_NAME }}      with:
+
         name: docker-image
-        path: ipl-cricket-app.tar
-        retention-days: 1
 
-  deploy-local-minikube:
-    runs-on: self-hosted  # This will run on your local machine with self-hosted runner
-    needs: build
-    
-    steps:
-    - name: Checkout code
+    - name: Deploy to Minikube        path: ipl-cricket-app.tar
+
+      run: |        retention-days: 1
+
+        echo "Applying Kubernetes manifests..."
+
+        kubectl apply -f k8s/namespace.yaml  deploy-local-minikube:
+
+        kubectl apply -f k8s/configmap.yaml    runs-on: self-hosted  # This will run on your local machine with self-hosted runner
+
+        kubectl apply -f k8s/deployment.yaml    needs: build
+
+        kubectl apply -f k8s/service.yaml    
+
+        echo "Restarting deployment to pick up new image..."    steps:
+
+        kubectl rollout restart deployment/ipl-cricket-app -n ipl-cricket    - name: Checkout code
+
       uses: actions/checkout@v4
 
-    - name: Download Docker image artifact
-      uses: actions/download-artifact@v4
-      with:
+    - name: Wait for deployment
+
+      run: |    - name: Download Docker image artifact
+
+        echo "Waiting for deployment to be ready..."      uses: actions/download-artifact@v4
+
+        kubectl rollout status deployment/ipl-cricket-app -n ipl-cricket --timeout=120s      with:
+
         name: docker-image
 
-    - name: Load Docker image to Minikube
-      run: |
-        # Load the image into Minikube's Docker daemon
-        eval $(minikube docker-env)
-        docker load -i ipl-cricket-app.tar
-        docker images | grep ipl-cricket-app
+    - name: Get deployment status
 
-    - name: Deploy to Minikube
-      run: |
+      run: |    - name: Load Docker image to Minikube
+
+        echo "=== Pods ==="      run: |
+
+        kubectl get pods -n ipl-cricket        # Load the image into Minikube's Docker daemon
+
+        echo ""        eval $(minikube docker-env)
+
+        echo "=== Services ==="        docker load -i ipl-cricket-app.tar
+
+        kubectl get services -n ipl-cricket        docker images | grep ipl-cricket-app
+
+        echo ""
+
+        echo "=== Deployment ==="    - name: Deploy to Minikube
+
+        kubectl get deployment -n ipl-cricket      run: |
+
         # Apply Kubernetes manifests
-        kubectl apply -f k8s/namespace.yaml
-        kubectl apply -f k8s/configmap.yaml
-        kubectl apply -f k8s/deployment.yaml
-        kubectl apply -f k8s/service.yaml
-        # Restart deployment to pick up new image
-        kubectl rollout restart deployment/ipl-cricket-app -n ipl-cricket
 
-    - name: Wait for deployment
-      run: |
-        kubectl rollout status deployment/ipl-cricket-app -n ipl-cricket --timeout=120s
+    - name: Show application URL        kubectl apply -f k8s/namespace.yaml
+
+      run: |        kubectl apply -f k8s/configmap.yaml
+
+        echo "========================================"        kubectl apply -f k8s/deployment.yaml
+
+        echo "🎉 Deployment Complete!"        kubectl apply -f k8s/service.yaml
+
+        echo "========================================"        # Restart deployment to pick up new image
+
+        echo ""        kubectl rollout restart deployment/ipl-cricket-app -n ipl-cricket
+
+        echo "Access the application:"
+
+        echo "  Option 1: minikube service ipl-cricket-service -n ipl-cricket"    - name: Wait for deployment
+
+        echo "  Option 2: http://$(minikube ip):30080"      run: |
+
+        echo ""        kubectl rollout status deployment/ipl-cricket-app -n ipl-cricket --timeout=120s
+
 
     - name: Get deployment status
       run: |
