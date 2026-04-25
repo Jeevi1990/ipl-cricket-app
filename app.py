@@ -28,6 +28,7 @@ IPL_MATCHES = [
 
 # Top Players
 TOP_PLAYERS = [
+    {"name": "Sai Sudarshan", "team": "GT", "role": "Batsman", "runs": 8000, "wickets": 2},
     {"name": "Virat Kohli", "team": "RCB", "role": "Batsman", "runs": 7263, "wickets": 4},
     {"name": "MS Dhoni", "team": "CSK", "role": "Wicket-keeper", "runs": 5082, "wickets": 0},
     {"name": "Rohit Sharma", "team": "MI", "role": "Batsman", "runs": 6028, "wickets": 15},
