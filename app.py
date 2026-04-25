@@ -19,11 +19,11 @@ IPL_TEAMS = [
 
 # Sample IPL Matches
 IPL_MATCHES = [
-    {"id": 1, "team1": "MI", "team2": "CSK", "venue": "Wankhede Stadium", "winner": "CSK", "date": "2024-03-22"},
-    {"id": 2, "team1": "RCB", "team2": "KKR", "venue": "M. Chinnaswamy Stadium", "winner": "KKR", "date": "2024-03-23"},
-    {"id": 3, "team1": "DC", "team2": "RR", "venue": "Arun Jaitley Stadium", "winner": "RR", "date": "2024-03-24"},
-    {"id": 4, "team1": "GT", "team2": "LSG", "venue": "Narendra Modi Stadium", "winner": "GT", "date": "2024-03-25"},
-    {"id": 5, "team1": "SRH", "team2": "PBKS", "venue": "Rajiv Gandhi Stadium", "winner": "SRH", "date": "2024-03-26"}
+    {"id": 1, "team1": "MI", "team2": "CSK", "venue": "Wankhede Stadium", "winner": "CSK", "date": "2026-03-22"},
+    {"id": 2, "team1": "RCB", "team2": "KKR", "venue": "M. Chinnaswamy Stadium", "winner": "KKR", "date": "2026-03-23"},
+    {"id": 3, "team1": "DC", "team2": "RR", "venue": "Arun Jaitley Stadium", "winner": "RR", "date": "2026-03-24"},
+    {"id": 4, "team1": "GT", "team2": "LSG", "venue": "Narendra Modi Stadium", "winner": "GT", "date": "2026-03-25"},
+    {"id": 5, "team1": "SRH", "team2": "PBKS", "venue": "Rajiv Gandhi Stadium", "winner": "SRH", "date": "2026-03-26"}
 ]
 
 # Top Players
